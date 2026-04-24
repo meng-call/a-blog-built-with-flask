@@ -4,18 +4,18 @@
 
 ## 功能特性
 
-- ✅ 用户注册、登录、登出
-- ✅ 邮箱确认机制
-- ✅ 文章 CRUD 操作（创建、读取、更新、删除）
-- ✅ Markdown 支持（使用 Flask-PageDown）
-- ✅ 评论系统（支持审核）
-- ✅ 用户关注/取消关注
-- ✅ 粉丝/关注列表
-- ✅ 个人资料编辑
-- ✅ 管理员后台
-- ✅ RESTful API（带 Token 认证）
-- ✅ 头像支持（Cravatar/Gravatar）
-- ✅ 分页支持
+-  用户注册、登录、登出
+-  邮箱确认机制
+-  文章 CRUD 操作（创建、读取、更新、删除）
+-  Markdown 支持（使用 Flask-PageDown）
+-  评论系统（支持审核）
+-  用户关注/取消关注
+-  粉丝/关注列表
+-  个人资料编辑
+-  管理员后台
+-  RESTful API（带 Token 认证）
+-  头像支持（Cravatar/Gravatar）
+-  分页支持
 
 ## 技术栈
 
@@ -43,4 +43,6 @@
 ## 安装与运行
 
 ### 1. 克隆项目
+git clone https://github.com/meng-call/a-blog-built-with-flask.git
+
 
