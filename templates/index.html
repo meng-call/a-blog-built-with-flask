@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+{% import "_macros.html" as macros %}
+
+{% block title %}Flask App{% endblock %}
+
+{% block head %}
+{{ super() }}
+{{ pagedown.include_pagedown() }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    {% if current_user.is_authenticated %}
+        <h1>Hello, {{ current_user.username }}!</h1>
+    {% else %}
+        <h1>Welcome!</h1>
+    {% endif %}
+</div>
+
+{% if current_user.is_authenticated %}
+    {% if current_user.can(Permission.WRITE) %}
+        <div class="post-form">
+            {{ wtf.quick_form(form) }}
+        </div>
+    {% endif %}
+{% else %}
+    <p><a href="{{ url_for('auth.login') }}">Click here to log in</a></p>
+{% endif %}
+
+{% if current_user.is_authenticated %}
+<div class="post-tabs">
+    <ul class="nav nav-tabs" role="tablist">
+        <li {% if not show_followed %}class="active"{% endif %}>
+            <a href="{{ url_for('.show_all') }}">All</a>
+        </li>
+        <li {% if show_followed %}class="active"{% endif %}>
+            <a href="{{ url_for('.show_followed') }}">Followed</a>
+        </li>
+    </ul>
+</div>
+{% endif %}
+
+<h2>Posts</h2>
+<ul class="posts">
+    {% include '_posts.html' %}
+</ul>
+
+{% if pagination %}
+<div class="pagination">
+    {{ macros.pagination_widget(pagination, '.index') }}
+</div>
+{% endif %}
+{% endblock %}
