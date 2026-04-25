@@ -9,6 +9,7 @@ from app import create_app, db
 from app.models import User, Role
 import logging
 
+# Selenium 端到端测试
 
 class SeleniumTestCase(unittest.TestCase):
     client = None
