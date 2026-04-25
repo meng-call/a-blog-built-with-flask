@@ -63,3 +63,6 @@ htmlcov/
 
 # Migration (可选，如果你想保留迁移历史就注释掉这行)
 # migrations/
+chromedriver.exe
+msedgedriver.exe
+debug_*.html
