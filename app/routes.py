@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from .forms import NameForm, EditProfileForm, EditProfileAdminForm, PostForm, EditPostForm, CommentForm
 from .models import User, db, Permission, Post, Comment
 from app.models import Role
-from flask_sqlalchemy import get_debug_queries
 
 main = Blueprint('main', __name__)
 
@@ -13,11 +12,15 @@ main = Blueprint('main', __name__)
 @main.after_app_request
 def after_request(response):
     """记录慢查询日志"""
-    for query in get_debug_queries():
-        if query.duration >= current_app.config['FLASKY_SLOW_DB_QUERY_TIME']:
-            current_app.logger.warning(
-                'Slow query: %s\nParameters: %s\nDuration: %fs\nContext: %s\n' %
-                (query.statement, query.parameters, query.duration, query.context))
+    if hasattr(current_app, 'extensions') and 'sqlalchemy' in current_app.extensions:
+        queries = current_app.extensions['sqlalchemy'].queries
+        if queries:
+            for query in queries:
+                duration = query.duration
+                if duration >= current_app.config.get('FLASKY_SLOW_DB_QUERY_TIME', 0.5):
+                    current_app.logger.warning(
+                        'Slow query: %s\nParameters: %s\nDuration: %fs\nContext: %s\n' %
+                        (query.statement, query.parameters, duration, query.context))
     return response
 
 
