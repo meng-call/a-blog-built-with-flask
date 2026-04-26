@@ -66,3 +66,4 @@ htmlcov/
 chromedriver.exe
 msedgedriver.exe
 debug_*.html
+/check_prof_files.py

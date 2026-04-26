@@ -82,6 +82,10 @@ def forge_posts(count):
 def profile(length, profile_dir):
     """Start the application under the code profiler."""
     from werkzeug.middleware.profiler import ProfilerMiddleware
+    import werkzeug.serving
+    
     app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[length], profile_dir=profile_dir)
-    app.run(debug=False)
+    
+    # 使用 Werkzeug 的服务器运行，而不是 app.run()
+    werkzeug.serving.run_simple('127.0.0.1', 5000, app, use_reloader=False, threaded=True)
 

@@ -12,15 +12,18 @@ main = Blueprint('main', __name__)
 @main.after_app_request
 def after_request(response):
     """记录慢查询日志"""
-    if hasattr(current_app, 'extensions') and 'sqlalchemy' in current_app.extensions:
-        queries = current_app.extensions['sqlalchemy'].queries
+    try:
+        from flask_sqlalchemy import get_recorded_queries
+        queries = get_recorded_queries()
         if queries:
             for query in queries:
-                duration = query.duration
-                if duration >= current_app.config.get('FLASKY_SLOW_DB_QUERY_TIME', 0.5):
+                if query.duration >= current_app.config.get('FLASKY_SLOW_DB_QUERY_TIME', 0.5):
                     current_app.logger.warning(
                         'Slow query: %s\nParameters: %s\nDuration: %fs\nContext: %s\n' %
-                        (query.statement, query.parameters, duration, query.context))
+                        (query.statement, query.parameters, query.duration, query.context))
+    except ImportError:
+        # 如果导入失败（旧版本），使用原来的方法
+        pass
     return response
 
 
