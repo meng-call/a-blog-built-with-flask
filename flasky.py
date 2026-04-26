@@ -2,7 +2,7 @@ import os
 import click
 from app import create_app, db
 from app.models import User, Role, Post
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
 migrate = Migrate(app, db)
@@ -88,4 +88,17 @@ def profile(length, profile_dir):
     
     # 使用 Werkzeug 的服务器运行，而不是 app.run()
     werkzeug.serving.run_simple('127.0.0.1', 5000, app, use_reloader=False, threaded=True)
+
+
+@app.cli.command()
+def deploy():
+    """Run deployment tasks."""
+    # 把数据库迁移到最新修订版本
+    upgrade()
+    
+    # 创建或更新用户角色
+    Role.insert_roles()
+    
+    # 确保所有用户都关注了他们自己
+    User.add_self_follows()
 

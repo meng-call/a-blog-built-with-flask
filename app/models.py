@@ -248,6 +248,15 @@ class User(UserMixin, db.Model):
         return Post.query.join(Follow, Follow.followed_id == Post.author_id)\
             .filter(Follow.follower_id == self.id)
 
+    @staticmethod
+    def add_self_follows():
+        """确保所有用户都关注了自己"""
+        users = User.query.all()
+        for user in users:
+            if not user.is_following(user):
+                user.follow(user)
+        db.session.commit()
+
     def __repr__(self):
         return '<User %r>' % self.username
 

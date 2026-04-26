@@ -33,6 +33,9 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     mail.init_app(app)
     pagedown.init_app(app)
+    
+    # 调用配置类的 init_app 方法
+    config[config_name].init_app(app)
 
     from .routes import main
     app.register_blueprint(main)
