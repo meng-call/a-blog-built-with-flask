@@ -1,26 +1,32 @@
 <div class="comments-section">
 {% for comment in comments %}
-<div class="comment {% if comment.disabled %}disabled{% endif %}" style="margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #eee;">
+<div class="comment-item">
     <div class="row">
-        <div class="col-md-2">
+        <div class="col-auto">
             {% if comment.author %}
             <a href="{{ url_for('main.user', username=comment.author.username) }}">
-                <img class="img-rounded profile-thumbnail" src="{{ comment.author.gravatar(size=40) }}" style="width: 40px; height: 40px;">
+                <img class="rounded-circle" src="{{ comment.author.gravatar(size=40) }}" style="width: 40px; height: 40px;">
             </a>
             {% else %}
-            <img class="img-rounded profile-thumbnail" src="https://cravatar.cn/avatar/00000000000000000000000000000000?s=40&d=identicon&r=g" style="width: 40px; height: 40px;">
+            <img class="rounded-circle" src="https://cravatar.cn/avatar/00000000000000000000000000000000?s=40&d=identicon&r=g" style="width: 40px; height: 40px;">
             {% endif %}
         </div>
-        <div class="col-md-10">
-            <div class="comment-header" style="margin-bottom: 5px;">
+        <div class="col">
+            <div class="d-flex align-items-center mb-2">
                 {% if comment.author %}
-                <strong><a href="{{ url_for('main.user', username=comment.author.username) }}">{{ comment.author.username }}</a></strong>
+                <strong>
+                    <a href="{{ url_for('main.user', username=comment.author.username) }}" class="text-decoration-none">
+                        {{ comment.author.username }}
+                    </a>
+                </strong>
                 {% else %}
                 <strong class="text-muted">[已删除用户]</strong>
                 {% endif %}
-                <span class="text-muted" style="margin-left: 10px; font-size: 12px;">{{ moment(comment.timestamp).fromNow() }}</span>
+                <small class="text-muted ms-2">
+                    <i class="far fa-clock"></i> {{ moment(comment.timestamp).fromNow() }}
+                </small>
             </div>
-            <div class="comment-body" style="margin-top: 10px;">
+            <div class="comment-body">
                 {% if comment.body_html %}
                     {{ comment.body_html | safe }}
                 {% else %}
@@ -28,11 +34,15 @@
                 {% endif %}
             </div>
             {% if moderate is defined and moderate %}
-            <div class="comment-actions" style="margin-top: 10px;">
+            <div class="mt-2">
                 {% if comment.disabled %}
-                <a class="btn btn-default btn-xs" href="{{ url_for('.moderate_enable', id=comment.id, page=page) }}">Enable</a>
+                <a class="btn btn-sm btn-success" href="{{ url_for('.moderate_enable', id=comment.id, page=page) }}">
+                    <i class="fas fa-check"></i> 启用
+                </a>
                 {% else %}
-                <a class="btn btn-danger btn-xs" href="{{ url_for('.moderate_disable', id=comment.id, page=page) }}">Disable</a>
+                <a class="btn btn-sm btn-danger" href="{{ url_for('.moderate_disable', id=comment.id, page=page) }}">
+                    <i class="fas fa-ban"></i> 禁用
+                </a>
                 {% endif %}
             </div>
             {% endif %}
@@ -40,8 +50,9 @@
     </div>
 </div>
 {% else %}
-<div class="no-comments" style="padding: 20px; text-align: center; color: #999;">
-    <p>暂无评论</p>
+<div class="text-center py-4">
+    <i class="fas fa-comment-slash fa-2x text-muted mb-2"></i>
+    <p class="text-muted">暂无评论</p>
 </div>
 {% endfor %}
 </div>

@@ -3,28 +3,37 @@
 {% import "_macros.html" as macros %}
 {% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}Flasky - Post{% endblock %}
+{% block title %}帖子详情{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-12">
         {% if current_user.is_authenticated %}
-        <div class="comment-form">
-            {{ wtf.quick_form(form) }}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-comment"></i> 发表评论
+            </div>
+            <div class="card-body">
+                {{ wtf.quick_form(form) }}
+            </div>
         </div>
         {% endif %}
+
         {% include '_posts.html' %}
 
-        <h4>Comments</h4>
+        <h4 class="mt-4 mb-3"><i class="fas fa-comments"></i> 评论</h4>
         {% if comments %}
             {% include '_comments.html' %}
             {% if pagination %}
-            <div class="pagination">
+            <nav class="mt-4">
                 {{ macros.pagination_widget(pagination, '.post', fragment='#comments', id=posts[0].id) }}
-            </div>
+            </nav>
             {% endif %}
         {% else %}
-            <p class="text-muted">No comments yet. Be the first to comment!</p>
+            <div class="text-center py-4">
+                <i class="fas fa-comment-dots fa-2x text-muted mb-2"></i>
+                <p class="text-muted">暂无评论。快来发表第一条评论吧！</p>
+            </div>
         {% endif %}
     </div>
 </div>

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}分类 - 莓油菜花的博客{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-folder"></i> 分类</h1>
+    <p class="text-muted">浏览不同主题的文章</p>
+</div>
+
+<div class="row">
+    {% if categories %}
+        {% for category in categories %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-folder fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">{{ category.name }}</h5>
+                    <p class="text-muted">{{ category.posts.count() }} 篇文章</p>
+                    <a href="{{ url_for('.category', id=category.id) }}" class="btn btn-outline-primary">
+                        查看文章 <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 还没有分类，请先创建分类
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

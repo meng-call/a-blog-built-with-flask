@@ -37,8 +37,8 @@ class Role(db.Model):
     def insert_roles():
         """插入角色"""
         roles = {
-            'User': [Permission.FOLLOW, Permission.COMMENT, Permission.WRITE],
-            'Moderator': [Permission.FOLLOW, Permission.COMMENT, Permission.WRITE, Permission.MODERATE],
+            'User': [Permission.FOLLOW, Permission.COMMENT],
+            'Moderator': [Permission.FOLLOW, Permission.COMMENT, Permission.MODERATE],
             'Administrator': [Permission.FOLLOW, Permission.COMMENT, Permission.WRITE, Permission.MODERATE, Permission.ADMIN]
         }
         default_role = 'User'
@@ -95,61 +95,66 @@ class Follow(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+# 文章标签关联表（多对多）- 使用不同的表名避免冲突
+post_tags = db.Table('post_tags',
+    db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True),
+    db.Column('post_id', db.Integer, db.ForeignKey('posts.id'), primary_key=True)
+)
+
+
+class Category(db.Model):
+    """文章分类"""
+    __tablename__ = 'categories'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), unique=True, index=True)
+    posts = db.relationship('Post', backref='category', lazy='dynamic')
+
+    def __repr__(self):
+        return '<Category %r>' % self.name
+
+
+class Tag(db.Model):
+    """文章标签"""
+    __tablename__ = 'tags'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), unique=True, index=True)
+
+    def __repr__(self):
+        return '<Tag %r>' % self.name
+
+
+class Navigation(db.Model):
+    """导航菜单"""
+    __tablename__ = 'navigations'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=False)
+    url = db.Column(db.String(128), nullable=False)
+    icon = db.Column(db.String(64), default='fas fa-link')
+    order = db.Column(db.Integer, default=0)
+    enabled = db.Column(db.Boolean, default=True)
+
+    def __repr__(self):
+        return '<Navigation %r>' % self.name
+
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(64), unique=True, index=True)
     username = db.Column(db.String(64), unique=True, index=True)
     password_hash = db.Column(db.String(128))
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id', name='fk_user_role'))
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     confirmed = db.Column(db.Boolean, default=False)
     name = db.Column(db.String(64))
     location = db.Column(db.String(64))
+    signature = db.Column(db.String(128))
     about_me = db.Column(db.Text())
+    website = db.Column(db.String(128))
+    avatar_image = db.Column(db.String(128))
     member_since = db.Column(db.DateTime(), default=datetime.utcnow)
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
-    avatar_hash = db.Column(db.String(32))
     posts = db.relationship('Post', backref='author', lazy='dynamic')
     comments = db.relationship('Comment', backref='author', lazy='dynamic')
-    followed = db.relationship('Follow', foreign_keys=[Follow.follower_id],
-                               backref=db.backref('follower', lazy='joined'),
-                               lazy='dynamic', cascade='all, delete-orphan')
-    followers = db.relationship('Follow', foreign_keys=[Follow.followed_id],
-                                backref=db.backref('followed', lazy='joined'),
-                                lazy='dynamic', cascade='all, delete-orphan')
-
-    def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
-        if self.role is None:
-            if self.email == current_app.config['FLASKY_ADMIN']:
-                self.role = Role.query.filter_by(name='Administrator').first()
-            if self.role is None:
-                self.role = Role.query.filter_by(default=True).first()
-        if self.email is not None and self.avatar_hash is None:
-            self.avatar_hash = self.gravatar_hash()
-        self.follow(self)
-
-    def to_json(self):
-        """将用户对象转换为JSON格式"""
-        json_user = {
-            'url': url_for('api.get_user', id=self.id),
-            'username': self.username,
-            'member_since': self.member_since,
-            'last_seen': self.last_seen,
-            'posts_url': url_for('api.get_user_posts', id=self.id),
-            'post_count': self.posts.count(),
-            'followers_url': url_for('api.get_user_followers', id=self.id),
-            'followed_url': url_for('api.get_user_followed', id=self.id),
-            'follower_count': self.followers.count(),
-            'followed_count': self.followed.count(),
-            'gravatar_url': self.gravatar(size=128)
-        }
-        return json_user
-
-    def ping(self):
-        """更新最后在线时间"""
-        self.last_seen = datetime.utcnow()
-        db.session.add(self)
 
     @property
     def password(self):
@@ -162,117 +167,79 @@ class User(UserMixin, db.Model):
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    def generate_confirmation_token(self, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], salt='confirmation')
-        return s.dumps({'confirm': self.id}, expires_in=expiration)
-
-    def confirm(self, token):
-        s = Serializer(current_app.config['SECRET_KEY'], salt='confirmation')
-        try:
-            data = s.loads(token, max_age=3600)
-        except:
-            return False
-        if data.get('confirm') != self.id:
-            return False
-        self.confirmed = True
-        db.session.add(self)
-        return True
-
-    def generate_auth_token(self, expiration=3600):
-        """生成API认证令牌"""
-        s = Serializer(current_app.config['SECRET_KEY'], salt='api-token')
-        token_data = s.dumps({'id': self.id})
-        # 在 Python 3 中，dumps 返回的可能是字符串或字节
-        if isinstance(token_data, bytes):
-            return token_data.decode('utf-8')
-        return token_data
-
-    @staticmethod
-    def verify_auth_token(token, expiration=3600):
-        """验证API认证令牌"""
-        s = Serializer(current_app.config['SECRET_KEY'], salt='api-token')
-        try:
-            data = s.loads(token, max_age=expiration)
-        except Exception:
-            return None
-        return User.query.get(data.get('id'))
-
-    def can(self, perm):
-        """检查用户是否有权限"""
-        return self.role is not None and self.role.has_permission(perm)
-
-    def is_administrator(self):
-        """检查是否是管理员"""
-        return self.can(Permission.ADMIN)
-
-    def gravatar_hash(self):
-        """计算头像哈希值"""
-        if self.email is None:
-            return hashlib.md5(b'').hexdigest()
-        return hashlib.md5(self.email.lower().encode('utf-8')).hexdigest()
-
     def gravatar(self, size=100, default='identicon', rating='g'):
-        """生成 Cravatar 头像 URL"""
+        """生成头像 URL（优先使用本地头像）"""
+        if self.avatar_image:
+            return url_for('static', filename='avatars/' + self.avatar_image)
+        
         url = 'https://cravatar.cn/avatar'
-        hash = self.avatar_hash or self.gravatar_hash()
+        hash = hashlib.md5(self.email.lower().encode('utf-8')).hexdigest()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=hash, size=size, default=default, rating=rating)
 
-    def follow(self, user):
-        """关注用户"""
-        if not self.is_following(user):
-            f = Follow(follower=self, followed=user)
-            db.session.add(f)
+    def ping(self):
+        """更新最后在线时间"""
+        self.last_seen = datetime.utcnow()
+        db.session.add(self)
 
-    def unfollow(self, user):
-        """取消关注用户"""
-        f = self.followed.filter_by(followed_id=user.id).first()
-        if f:
-            db.session.delete(f)
+    def is_administrator(self):
+        return self.can(Permission.ADMIN)
 
-    def is_following(self, user):
-        """检查是否关注了某用户"""
-        if user.id is None:
-            return False
-        return self.followed.filter_by(followed_id=user.id).first() is not None
+    def can(self, permissions):
+        return self.role is not None and \
+               (self.role.permissions & permissions) == permissions
 
-    def is_followed_by(self, user):
-        """检查是否被某用户关注"""
-        if user.id is None:
-            return False
-        return self.followers.filter_by(follower_id=user.id).first() is not None
-
-    @property
-    def followed_posts(self):
-        """查询当前用户关注的所有用户发布的文章"""
-        return Post.query.join(Follow, Follow.followed_id == Post.author_id)\
-            .filter(Follow.follower_id == self.id)
-
-    @staticmethod
-    def add_self_follows():
-        """确保所有用户都关注了自己"""
-        users = User.query.all()
-        for user in users:
-            if not user.is_following(user):
-                user.follow(user)
-        db.session.commit()
+    def save_avatar(self, file_storage):
+        """保存上传的头像"""
+        import os
+        from werkzeug.utils import secure_filename
+        from uuid import uuid4
+        from flask import current_app
+        
+        # 删除旧头像
+        if self.avatar_image:
+            old_avatar_path = os.path.join(
+                current_app.root_path, 'static', 'avatars', self.avatar_image
+            )
+            if os.path.exists(old_avatar_path):
+                os.remove(old_avatar_path)
+        
+        # 保存新头像
+        filename = secure_filename(file_storage.filename)
+        ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else 'png'
+        new_filename = f'{uuid4().hex}.{ext}'
+        
+        # 使用 static_folder 路径，与 url_for('static') 一致
+        static_folder = current_app.static_folder
+        avatars_dir = os.path.join(static_folder, 'avatars')
+        os.makedirs(avatars_dir, exist_ok=True)
+        
+        # 确保文件指针在开头
+        file_storage.seek(0)
+        file_path = os.path.join(avatars_dir, new_filename)
+        file_storage.save(file_path)
+        self.avatar_image = new_filename
 
     def __repr__(self):
         return '<User %r>' % self.username
 
-
 class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(128), index=True)
     body = db.Column(db.Text)
     body_html = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     comments = db.relationship('Comment', backref='post', lazy='dynamic')
+    tags = db.relationship('Tag', secondary=post_tags,
+                          backref=db.backref('posts', lazy='dynamic'),
+                          lazy='dynamic')
 
     @staticmethod
     def on_changed_body(target, value, oldvalue, initiator):
-        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
+        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'code',
                         'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
                         'h1', 'h2', 'h3', 'p']
         target.body_html = bleach.linkify(bleach.clean(

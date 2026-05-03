@@ -2,9 +2,9 @@ from app.decorators import admin_required, permission_required
 from flask import Blueprint, render_template, session, redirect, url_for, abort, flash, request, current_app, make_response
 from flask_login import login_required, current_user
 from datetime import datetime, timezone
-from .forms import NameForm, EditProfileForm, EditProfileAdminForm, PostForm, EditPostForm, CommentForm
-from .models import User, db, Permission, Post, Comment
-from app.models import Role
+from .forms import PostForm, EditPostForm, CommentForm, EditProfileForm, ChangeAvatarForm, NavigationForm
+from .models import User, db, Post, Comment, Category, Tag, Navigation
+from app.models import Role, Permission
 
 main = Blueprint('main', __name__)
 
@@ -36,28 +36,76 @@ def inject_permissions():
 @main.route('/', methods=['GET', 'POST'])
 def index():
     form = PostForm()
-    if current_user.is_authenticated and current_user.can(Permission.WRITE) and form.validate_on_submit():
-        post = Post(body=form.body.data, author=current_user._get_current_object())
-        db.session.add(post)
-        db.session.commit()
-        return redirect(url_for('.index'))
     
     page = request.args.get('page', 1, type=int)
-    show_followed = False
-    if current_user.is_authenticated:
-        show_followed = bool(request.cookies.get('show_followed', ''))
     
-    if show_followed:
-        query = current_user.followed_posts
-    else:
-        query = Post.query
+    query = Post.query
     
     pagination = query.order_by(Post.timestamp.desc()).paginate(
         page=page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'], error_out=False
     )
     posts = pagination.items
-    return render_template('index.html', form=form, posts=posts,
-                           show_followed=show_followed, pagination=pagination)
+    return render_template('index.html', form=form, posts=posts, pagination=pagination)
+
+
+@main.route('/post/new', methods=['GET', 'POST'])
+@login_required
+def new_post():
+    """发布新文章（仅管理员）"""
+    if not current_user.is_administrator():
+        abort(403)
+    
+    form = PostForm()
+    if form.validate_on_submit():
+        category = Category.query.get(form.category.data)
+        post = Post(
+            title=form.title.data,
+            body=form.body.data,
+            category=category,
+            author=current_user._get_current_object()
+        )
+        
+        if form.tags.data:
+            tags = Tag.query.filter(Tag.id.in_(form.tags.data)).all()
+            post.tags = tags
+        
+        db.session.add(post)
+        db.session.commit()
+        flash('文章已发布', 'success')
+        return redirect(url_for('.post', id=post.id))
+    
+    return render_template('edit_post.html', form=form, post=None)
+
+
+@main.route('/search')
+def search():
+    """搜索文章"""
+    query = request.args.get('q', '').strip()
+    page = request.args.get('page', 1, type=int)
+    
+    if not query:
+        return redirect(url_for('.index'))
+    
+    # 在标题和正文中搜索
+    search_pattern = f'%{query}%'
+    posts = Post.query.filter(
+        db.or_(
+            Post.title.like(search_pattern),
+            Post.body.like(search_pattern)
+        )
+    ).order_by(Post.timestamp.desc()).paginate(
+        page=page,
+        per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
+        error_out=False
+    )
+    
+    return render_template('search.html', posts=posts, query=query, pagination=posts)
+
+
+@main.route('/about')
+def about():
+    """关于我页面"""
+    return render_template('about.html')
 
 
 @main.route('/user/<username>')
@@ -76,7 +124,14 @@ def edit_profile():
     if form.validate_on_submit():
         current_user.name = form.name.data
         current_user.location = form.location.data
+        current_user.signature = form.signature.data
         current_user.about_me = form.about_me.data
+        current_user.website = form.website.data
+        
+        # 处理头像上传
+        if form.avatar.data:
+            current_user.save_avatar(form.avatar.data)
+        
         db.session.add(current_user)
         db.session.commit()
         flash('你的个人资料已更新', 'success')
@@ -85,42 +140,32 @@ def edit_profile():
     if request.method == 'GET':
         form.name.data = current_user.name
         form.location.data = current_user.location
+        form.signature.data = current_user.signature
         form.about_me.data = current_user.about_me
+        if hasattr(current_user, 'website'):
+            form.website.data = current_user.website
     
     return render_template('edit_profile.html', form=form)
 
 
-@main.route('/edit-profile/<int:id>', methods=['GET', 'POST'])
+@main.route('/change-avatar', methods=['GET', 'POST'])
 @login_required
-@admin_required
-def edit_profile_admin(id):
-    """管理员编辑用户资料"""
-    user = User.query.get_or_404(id)
-    form = EditProfileAdminForm(user=user)
+def change_avatar():
+    """更换头像"""
+    form = ChangeAvatarForm()
     if form.validate_on_submit():
-        user.email = form.email.data
-        user.avatar_hash = user.gravatar_hash()
-        user.username = form.username.data
-        user.confirmed = form.confirmed.data
-        user.role = Role.query.get(form.role.data)
-        user.name = form.name.data
-        user.location = form.location.data
-        user.about_me = form.about_me.data
-        db.session.add(user)
-        db.session.commit()
-        flash('用户资料已更新', 'success')
-        return redirect(url_for('main.user', username=user.username))
+        try:
+            current_user.save_avatar(form.avatar.data)
+            db.session.add(current_user)
+            db.session.commit()
+            flash('头像已成功更新', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'头像上传失败: {str(e)}', 'danger')
+            return redirect(url_for('main.change_avatar'))
+        return redirect(url_for('main.user', username=current_user.username))
     
-    if request.method == 'GET':
-        form.email.data = user.email
-        form.username.data = user.username
-        form.confirmed.data = user.confirmed
-        form.role.data = user.role_id
-        form.name.data = user.name
-        form.location.data = user.location
-        form.about_me.data = user.about_me
-    
-    return render_template('edit_profile_admin.html', form=form, user=user)
+    return render_template('auth/change_avatar.html', form=form)
 
 
 @main.route('/post/<int:id>', methods=['GET', 'POST'])
@@ -155,148 +200,382 @@ def post(id):
 def edit_post(id):
     """编辑文章"""
     post = Post.query.get_or_404(id)
-    if current_user != post.author and not current_user.can(Permission.ADMIN):
+    if current_user != post.author:
         abort(403)
     
     form = EditPostForm()
     if form.validate_on_submit():
+        post.title = form.title.data
         post.body = form.body.data
+        
+        category = Category.query.get(form.category.data)
+        post.category = category
+        
+        if form.tags.data:
+            tags = Tag.query.filter(Tag.id.in_(form.tags.data)).all()
+            post.tags = tags
+        
         db.session.add(post)
         db.session.commit()
         flash('文章已更新', 'success')
         return redirect(url_for('.post', id=post.id))
     
     if request.method == 'GET':
+        form.title.data = post.title
         form.body.data = post.body
+        form.category.data = post.category_id if post.category else None
+        form.tags.data = [tag.id for tag in post.tags]
     
-    return render_template('edit_post.html', form=form)
+    return render_template('edit_post.html', form=form, post=post)
 
 
-@main.route('/follow/<username>')
+@main.route('/post/<int:id>/delete', methods=['POST'])
 @login_required
-@permission_required(Permission.FOLLOW)
-def follow(username):
-    """关注用户"""
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        flash('无效的用户', 'error')
-        return redirect(url_for('.index'))
-    if current_user.is_following(user):
-        flash('你已经关注了该用户', 'warning')
-        return redirect(url_for('.user', username=username))
-    current_user.follow(user)
+def delete_post(id):
+    """删除文章"""
+    post = Post.query.get_or_404(id)
+    if current_user != post.author:
+        abort(403)
+    
+    db.session.delete(post)
     db.session.commit()
-    flash('你已关注 %s' % username, 'success')
-    return redirect(url_for('.user', username=username))
+    flash('文章已删除', 'success')
+    return redirect(url_for('.index'))
 
 
-@main.route('/unfollow/<username>')
-@login_required
-@permission_required(Permission.FOLLOW)
-def unfollow(username):
-    """取消关注用户"""
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        flash('无效的用户', 'error')
-        return redirect(url_for('.index'))
-    if not current_user.is_following(user):
-        flash('你未关注该用户', 'warning')
-        return redirect(url_for('.user', username=username))
-    current_user.unfollow(user)
-    db.session.commit()
-    flash('你已取消关注 %s' % username, 'success')
-    return redirect(url_for('.user', username=username))
+@main.route('/archives')
+def archives():
+    """归档页面 - 按年份和月份分组显示文章"""
+    from sqlalchemy import extract
+    
+    # 获取所有年份和月份
+    archives = db.session.query(
+        extract('year', Post.timestamp).label('year'),
+        extract('month', Post.timestamp).label('month')
+    ).group_by('year', 'month').order_by(
+        db.desc('year'), db.desc('month')
+    ).all()
+    
+    archive_data = []
+    for year, month in archives:
+        posts = Post.query.filter(
+            extract('year', Post.timestamp) == year,
+            extract('month', Post.timestamp) == month
+        ).order_by(Post.timestamp.desc()).all()
+        archive_data.append({
+            'year': int(year),
+            'month': int(month),
+            'posts': posts
+        })
+    
+    return render_template('archives.html', archives=archive_data)
 
 
-@main.route('/followers/<username>')
-def followers(username):
-    """粉丝列表"""
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        flash('无效的用户', 'error')
-        return redirect(url_for('.index'))
+@main.route('/categories')
+def categories():
+    """分类页面"""
+    category_list = Category.query.all()
+    return render_template('categories.html', categories=category_list)
+
+
+@main.route('/category/<int:id>')
+def category(id):
+    """分类详情页"""
+    category = Category.query.get_or_404(id)
     page = request.args.get('page', 1, type=int)
-    pagination = user.followers.paginate(
-        page=page, per_page=current_app.config['FLASKY_FOLLOWERS_PER_PAGE'], error_out=False
+    pagination = Post.query.filter_by(category_id=id).order_by(
+        Post.timestamp.desc()
+    ).paginate(
+        page=page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
+        error_out=False
     )
-    follows = [{'user': item.follower, 'timestamp': item.timestamp}
-               for item in pagination.items if item.follower != user]
-    return render_template('followers.html', user=user, title="Followers of",
-                           endpoint='.followers', pagination=pagination,
-                           follows=follows)
+    return render_template('category.html', category=category,
+                          posts=pagination.items, pagination=pagination)
 
 
-@main.route('/followed-by/<username>')
-def followed_by(username):
-    """关注列表"""
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        flash('无效的用户', 'error')
-        return redirect(url_for('.index'))
+@main.route('/tags')
+def tags():
+    """标签页面"""
+    tag_list = Tag.query.all()
+    return render_template('tags.html', tags=tag_list)
+
+
+@main.route('/tag/<int:id>')
+def tag(id):
+    """标签详情页"""
+    tag_obj = Tag.query.get_or_404(id)
     page = request.args.get('page', 1, type=int)
-    pagination = user.followed.paginate(
-        page=page, per_page=current_app.config['FLASKY_FOLLOWERS_PER_PAGE'], error_out=False
+    pagination = tag_obj.posts.order_by(Post.timestamp.desc()).paginate(
+        page=page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
+        error_out=False
     )
-    follows = [{'user': item.followed, 'timestamp': item.timestamp}
-               for item in pagination.items if item.followed != user]
-    return render_template('followers.html', user=user, title="Followed by",
-                           endpoint='.followed_by', pagination=pagination,
-                           follows=follows)
+    return render_template('tag.html', tag=tag_obj,
+                          posts=pagination.items, pagination=pagination)
 
 
-@main.route('/all')
+@main.route('/admin/categories')
 @login_required
-def show_all():
-    """显示所有文章"""
-    resp = make_response(redirect(url_for('.index')))
-    resp.set_cookie('show_followed', '', max_age=30*24*60*60)
-    return resp
+def admin_categories():
+    """分类管理页面"""
+    if not current_user.is_administrator():
+        abort(403)
+    categories = Category.query.order_by(Category.name).all()
+    return render_template('admin/categories.html', categories=categories)
 
 
-@main.route('/followed')
+@main.route('/admin/category/add', methods=['GET', 'POST'])
 @login_required
-def show_followed():
-    """显示关注的文章"""
-    resp = make_response(redirect(url_for('.index')))
-    resp.set_cookie('show_followed', '1', max_age=30*24*60*60)
-    return resp
+def add_category():
+    """添加分类"""
+    if not current_user.is_administrator():
+        abort(403)
+    from flask import request as req
+    if req.method == 'POST':
+        name = req.form.get('name', '').strip()
+        if name:
+            if Category.query.filter_by(name=name).first():
+                flash('分类已存在', 'warning')
+            else:
+                category = Category(name=name)
+                db.session.add(category)
+                db.session.commit()
+                flash('分类已添加', 'success')
+                return redirect(url_for('.admin_categories'))
+    return render_template('admin/category_form.html', title='添加分类')
 
 
-@main.route('/moderate')
+@main.route('/admin/category/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@permission_required(Permission.MODERATE)
-def moderate():
-    """评论审核页面"""
-    page = request.args.get('page', 1, type=int)
-    pagination = Comment.query.order_by(Comment.timestamp.desc()).paginate(
-        page=page, per_page=current_app.config['FLASKY_COMMENTS_PER_PAGE'],
-        error_out=False)
-    comments = pagination.items
-    return render_template('moderate.html', comments=comments,
-                          pagination=pagination, page=page)
+def edit_category(id):
+    """编辑分类"""
+    if not current_user.is_administrator():
+        abort(403)
+    category = Category.query.get_or_404(id)
+    from flask import request as req
+    if req.method == 'POST':
+        name = req.form.get('name', '').strip()
+        if name:
+            existing = Category.query.filter_by(name=name).first()
+            if existing and existing.id != id:
+                flash('分类名称已存在', 'warning')
+            else:
+                category.name = name
+                db.session.add(category)
+                db.session.commit()
+                flash('分类已更新', 'success')
+                return redirect(url_for('.admin_categories'))
+    return render_template('admin/category_form.html', category=category, title='编辑分类')
 
 
-@main.route('/moderate/enable/<int:id>')
+@main.route('/admin/category/<int:id>/delete', methods=['POST'])
 @login_required
-@permission_required(Permission.MODERATE)
-def moderate_enable(id):
-    """启用评论"""
-    comment = Comment.query.get_or_404(id)
-    comment.disabled = False
-    db.session.add(comment)
+def delete_category(id):
+    """删除分类"""
+    if not current_user.is_administrator():
+        abort(403)
+    category = Category.query.get_or_404(id)
+    if category.posts.count() > 0:
+        flash('该分类下有文章，无法删除', 'warning')
+    else:
+        db.session.delete(category)
+        db.session.commit()
+        flash('分类已删除', 'success')
+    return redirect(url_for('.admin_categories'))
+
+
+@main.route('/admin/tags')
+@login_required
+def admin_tags():
+    """标签管理页面"""
+    if not current_user.is_administrator():
+        abort(403)
+    tags = Tag.query.order_by(Tag.name).all()
+    return render_template('admin/tags.html', tags=tags)
+
+
+@main.route('/admin/tag/add', methods=['GET', 'POST'])
+@login_required
+def add_tag():
+    """添加标签"""
+    if not current_user.is_administrator():
+        abort(403)
+    from flask import request as req
+    if req.method == 'POST':
+        name = req.form.get('name', '').strip()
+        if name:
+            if Tag.query.filter_by(name=name).first():
+                flash('标签已存在', 'warning')
+            else:
+                tag = Tag(name=name)
+                db.session.add(tag)
+                db.session.commit()
+                flash('标签已添加', 'success')
+                return redirect(url_for('.admin_tags'))
+    return render_template('admin/tag_form.html', title='添加标签')
+
+
+@main.route('/admin/tag/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_tag(id):
+    """编辑标签"""
+    if not current_user.is_administrator():
+        abort(403)
+    tag = Tag.query.get_or_404(id)
+    from flask import request as req
+    if req.method == 'POST':
+        name = req.form.get('name', '').strip()
+        if name:
+            existing = Tag.query.filter_by(name=name).first()
+            if existing and existing.id != id:
+                flash('标签名称已存在', 'warning')
+            else:
+                tag.name = name
+                db.session.add(tag)
+                db.session.commit()
+                flash('标签已更新', 'success')
+                return redirect(url_for('.admin_tags'))
+    return render_template('admin/tag_form.html', tag=tag, title='编辑标签')
+
+
+@main.route('/admin/tag/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_tag(id):
+    """删除标签"""
+    if not current_user.is_administrator():
+        abort(403)
+    tag = Tag.query.get_or_404(id)
+    if tag.posts.count() > 0:
+        flash('该标签下有文章，无法删除', 'warning')
+    else:
+        db.session.delete(tag)
+        db.session.commit()
+        flash('标签已删除', 'success')
+    return redirect(url_for('.admin_tags'))
+
+
+@main.app_context_processor
+def inject_navigations():
+    """注入导航菜单到所有模板"""
+    navs = Navigation.query.filter_by(enabled=True).order_by(Navigation.order).all()
+    return dict(custom_navigations=navs)
+
+@main.route('/admin/navigations')
+@login_required
+def admin_navigations():
+    """导航菜单管理页面"""
+    if not current_user.is_administrator():
+        abort(403)
+    navs = Navigation.query.order_by(Navigation.order).all()
+    return render_template('admin/navigations.html', navs=navs)
+
+
+@main.route('/admin/navigation/add', methods=['GET', 'POST'])
+@login_required
+def add_navigation():
+    """添加导航菜单"""
+    if not current_user.is_administrator():
+        abort(403)
+    form = NavigationForm()
+    if form.validate_on_submit():
+        nav = Navigation(
+            name=form.name.data,
+            url=form.url.data,
+            icon=form.icon.data or 'fas fa-link',
+            order=int(form.order.data) if form.order.data else 0,
+            enabled=form.enabled.data
+        )
+        db.session.add(nav)
+        db.session.commit()
+        flash('导航菜单已添加', 'success')
+        return redirect(url_for('.admin_navigations'))
+    return render_template('admin/navigation_form.html', form=form, title='添加导航')
+
+
+@main.route('/admin/navigation/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_navigation(id):
+    """编辑导航菜单"""
+    if not current_user.is_administrator():
+        abort(403)
+    nav = Navigation.query.get_or_404(id)
+    form = NavigationForm()
+    if form.validate_on_submit():
+        nav.name = form.name.data
+        nav.url = form.url.data
+        nav.icon = form.icon.data or 'fas fa-link'
+        nav.order = int(form.order.data) if form.order.data else 0
+        nav.enabled = form.enabled.data
+        db.session.add(nav)
+        db.session.commit()
+        flash('导航菜单已更新', 'success')
+        return redirect(url_for('.admin_navigations'))
+    
+    if request.method == 'GET':
+        form.name.data = nav.name
+        form.url.data = nav.url
+        form.icon.data = nav.icon
+        form.order.data = str(nav.order)
+        form.enabled.data = nav.enabled
+    
+    return render_template('admin/navigation_form.html', form=form, title='编辑导航')
+
+
+@main.route('/admin/navigation/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_navigation(id):
+    """删除导航菜单"""
+    if not current_user.is_administrator():
+        abort(403)
+    nav = Navigation.query.get_or_404(id)
+    db.session.delete(nav)
     db.session.commit()
-    return redirect(url_for('.moderate',
-                           page=request.args.get('page', 1, type=int)))
+    flash('导航菜单已删除', 'success')
+    return redirect(url_for('.admin_navigations'))
 
 
-@main.route('/moderate/disable/<int:id>')
+@main.route('/upload-editor-image', methods=['POST'])
 @login_required
-@permission_required(Permission.MODERATE)
-def moderate_disable(id):
-    """禁用评论"""
-    comment = Comment.query.get_or_404(id)
-    comment.disabled = True
-    db.session.add(comment)
-    db.session.commit()
-    return redirect(url_for('.moderate',
-                           page=request.args.get('page', 1, type=int)))
+def upload_editor_image():
+    """上传编辑器图片"""
+    from flask import request as req
+    from werkzeug.utils import secure_filename
+    import os
+    from uuid import uuid4
+    
+    if 'file' not in req.files:
+        return {'error': 'No file provided'}, 400
+    
+    file = req.files['file']
+    if file.filename == '':
+        return {'error': 'No file selected'}, 400
+    
+    # 验证文件类型
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    filename = secure_filename(file.filename)
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    
+    if ext not in allowed_extensions:
+        return {'error': 'File type not allowed'}, 400
+    
+    # 生成唯一文件名
+    new_filename = f'{uuid4().hex}.{ext}'
+    
+    # 保存文件
+    static_folder = current_app.static_folder
+    upload_dir = os.path.join(static_folder, 'uploads', 'editor')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_path = os.path.join(upload_dir, new_filename)
+    file.save(file_path)
+    
+    # 返回图片URL
+    image_url = url_for('static', filename=f'uploads/editor/{new_filename}')
+    
+    return {'location': image_url}, 200
+
+
+@main.app_context_processor
+def inject_navigations():
+    """注入导航菜单到所有模板"""
+    navs = Navigation.query.filter_by(enabled=True).order_by(Navigation.order).all()
+    return dict(custom_navigations=navs)

@@ -1,18 +1,259 @@
 {% extends "base.html" %}
-{% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}Flasky - Edit Post{% endblock %}
+{% block title %}{% if post %}编辑文章{% else %}发布新文章{% endif %}{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Edit Post</h1>
-</div>
-<div>
-    {{ wtf.quick_form(form) }}
+<div class="editor-container">
+    <div class="page-header">
+        <h1>
+            <i class="fas fa-{% if post %}edit{% else %}plus-circle{% endif %}"></i>
+            {% if post %}编辑文章{% else %}发布新文章{% endif %}
+        </h1>
+        <p>使用富文本编辑器创作你的精彩内容</p>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" id="post-form">
+                {{ form.hidden_tag() }}
+
+                <!-- 文章标题 -->
+                <div class="mb-4">
+                    {{ form.title.label(class="form-label") }}
+                    {{ form.title(class="form-control", placeholder="请输入文章标题...", id="title-field") }}
+                    {% for error in form.title.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- 分类和标签 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        {{ form.category.label(class="form-label") }}
+                        {{ form.category(class="form-select") }}
+                        {% for error in form.category.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.tags.label(class="form-label") }}
+                        {{ form.tags(class="form-select", multiple=True) }}
+                        {% for error in form.tags.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                        <small class="text-muted">按住 Ctrl/Cmd 键可选择多个标签</small>
+                    </div>
+                </div>
+
+                <!-- 富文本编辑器 -->
+                <div class="mb-4">
+                    {{ form.body.label(class="form-label") }}
+                    {{ form.body(class="form-control", rows=15, id="body-field", style="display: none;") }}
+
+                    <!-- TinyMCE 编辑器容器 -->
+                    <textarea id="editor">{{ form.body.data or '' }}</textarea>
+
+                    {% for error in form.body.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle"></i>
+                        支持插入图片、链接、表格、代码块等丰富内容
+                    </small>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="d-flex gap-2">
+                    {{ form.submit(class="btn btn-primary btn-lg") }}
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times"></i> 取消
+                    </a>
+                    <button type="button" class="btn btn-outline-info btn-lg" id="preview-btn">
+                        <i class="fas fa-eye"></i> 预览
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div class="modal fade" id="previewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye"></i> 文章预览
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h3 id="preview-title"></h3>
+                    <hr>
+                    <div id="preview-content" class="preview-content"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
-{{ pagedown.include_pagedown() }}
+<!-- TinyMCE 8 -->
+<script src="https://cdn.tiny.cloud/1/abk1zw3rn3pbifa1qtoc7kvael3cd587p2xhm1dvezgyo8sd/tinymce/8/tinymce.min.js" referrerpolicy="origin" crossorigin="anonymous"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化 TinyMCE 8 编辑器
+    tinymce.init({
+        selector: '#editor',
+        language: 'zh_CN',
+        language_url: '{{ url_for("static", filename="tinymce/langs/zh_CN.js") }}',
+        height: 500,
+        menubar: true,
+        plugins: [
+            'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount',
+            'image', 'preview', 'fullscreen', 'advlist', 'insertdatetime', 'paste', 'textpattern'
+        ],
+        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link images media table | removeformat codesample fullscreen preview',
+
+        // 图片上传配置
+        images_upload_handler: function (blobInfo, progress) {
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.withCredentials = false;
+                xhr.open('POST', '{{ url_for("main.upload_editor_image") }}');
+
+                var csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                xhr.setRequestHeader('X-CSRFToken', csrfToken);
+
+                xhr.upload.onprogress = function (e) {
+                    progress(e.loaded / e.total * 100);
+                };
+
+                xhr.onload = function () {
+                    if (xhr.status === 403) {
+                        reject('HTTP Error: ' + xhr.status);
+                        return;
+                    }
+                    if (xhr.status < 200 || xhr.status >= 300) {
+                        reject('HTTP Error: ' + xhr.status);
+                        return;
+                    }
+
+                    try {
+                        var json = JSON.parse(xhr.responseText);
+                        if (!json || typeof json.location != 'string') {
+                            reject('Invalid JSON: ' + xhr.responseText);
+                            return;
+                        }
+                        resolve(json.location);
+                    } catch (e) {
+                        reject('Error: ' + e.message);
+                    }
+                };
+
+                xhr.onerror = function () {
+                    reject('Image upload failed due to a XHR Transport error. Code: ' + xhr.status);
+                };
+
+                var formData = new FormData();
+                formData.append('file', blobInfo.blob(), blobInfo.filename());
+                xhr.send(formData);
+            });
+        },
+
+        paste_data_images: true,
+
+        // 自动保存
+        autosave_ask_before_unload: true,
+        autosave_interval: '30s',
+        autosave_prefix: 'tinymce-autosave-{path}{query}-{id}-',
+        autosave_restore_when_empty: false,
+        autosave_retention: '2m',
+
+        // 内容样式
+        content_style: `
+            body {
+                font-family: 'Noto Sans SC', sans-serif;
+                font-size: 16px;
+                line-height: 1.8;
+                padding: 20px;
+            }
+            img { max-width: 100%; height: auto; }
+            table { border-collapse: collapse; width: 100%; }
+            table td, table th { border: 1px solid #ddd; padding: 8px; }
+        `,
+
+        // 在表单提交前同步内容
+        setup: function(editor) {
+            editor.on('submit', function(e) {
+                e.preventDefault();
+                editor.save();
+                document.getElementById('post-form').submit();
+            });
+        }
+    });
+
+    // 表单提交时同步编辑器内容
+    document.getElementById('post-form').addEventListener('submit', function(e) {
+        tinymce.get('editor').save();
+        document.getElementById('body-field').value = tinymce.get('editor').getContent();
+    });
+
+    // 预览功能
+    document.getElementById('preview-btn').addEventListener('click', function() {
+        var content = tinymce.get('editor').getContent();
+        var title = document.getElementById('title-field').value;
+
+        document.getElementById('preview-title').textContent = title || '无标题';
+        document.getElementById('preview-content').innerHTML = content;
+
+        var previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        previewModal.show();
+    });
+});
+</script>
+
+<style>
+.editor-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.tox-tinymce {
+    border-radius: 10px !important;
+    border: 2px solid #e3e6f0 !important;
+}
+
+.tox-tinymce:focus-within {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25) !important;
+}
+
+.preview-content {
+    font-family: 'Noto Sans SC', sans-serif;
+    line-height: 1.8;
+}
+
+.preview-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+.preview-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.preview-content table td,
+.preview-content table th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+</style>
 {% endblock %}

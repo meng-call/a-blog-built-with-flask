@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}导航菜单管理{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-bars"></i> 导航菜单管理</h2>
+            <a href="{{ url_for('main.add_navigation') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 添加导航
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                {% if navs %}
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>排序</th>
+                            <th>图标</th>
+                            <th>名称</th>
+                            <th>链接地址</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for nav in navs %}
+                        <tr>
+                            <td>{{ nav.order }}</td>
+                            <td><i class="{{ nav.icon }}"></i> {{ nav.icon }}</td>
+                            <td>{{ nav.name }}</td>
+                            <td><code>{{ nav.url }}</code></td>
+                            <td>
+                                {% if nav.enabled %}
+                                <span class="badge bg-success">启用</span>
+                                {% else %}
+                                <span class="badge bg-secondary">禁用</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('main.edit_navigation', id=nav.id) }}" class="btn btn-outline-warning">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('main.delete_navigation', id=nav.id) }}" class="d-inline" onsubmit="return confirm('确定要删除吗？');">
+                                        <button type="submit" class="btn btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-bars fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">还没有导航菜单，点击上方按钮添加</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

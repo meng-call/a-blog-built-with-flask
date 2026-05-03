@@ -1,0 +1,63 @@
+NEW_FILE_CODE
+{% extends "base.html" %}
+
+{% block title %}更换头像 - 莓油菜花的博客{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h3 class="mb-0"><i class="fas fa-image"></i> 更换头像</h3>
+            </div>
+            <div class="card-body p-4">
+                <!-- 当前头像预览 -->
+                <div class="text-center mb-4">
+                    <img src="{{ current_user.gravatar(size=150) }}" 
+                         class="rounded-circle mb-3" 
+                         style="width: 150px; height: 150px; border: 5px solid #e3e6f0; object-fit: cover;">
+                    <p class="text-muted">当前头像</p>
+                </div>
+                
+                <hr>
+                
+                <!-- 上传表单 -->
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.avatar.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form.avatar(class="form-control", accept="images/*") }}
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            支持 JPG、PNG、GIF 格式，建议尺寸 200x200 像素
+                        </small>
+                        {% for error in form.avatar.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                        <a href="{{ url_for('main.edit_profile') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> 返回设置
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-lightbulb"></i> 
+            <strong>提示：</strong>
+            <ul class="mb-0 mt-2">
+                <li>头像会被自动裁剪为正方形</li>
+                <li>文件大小建议不超过 2MB</li>
+                <li>上传后会立即生效</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

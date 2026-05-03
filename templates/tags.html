@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}标签 - 莓油菜花的博客{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-tags"></i> 标签</h1>
+    <p class="text-muted">按标签查找文章</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if tags %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for tag in tags %}
+                <a href="{{ url_for('.tag', id=tag.id) }}" class="badge bg-primary text-decoration-none p-2" 
+                   style="font-size: 1rem;">
+                    <i class="fas fa-tag me-1"></i>{{ tag.name }}
+                    <span class="badge bg-light text-dark ms-1">{{ tag.posts.count() }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 还没有标签
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

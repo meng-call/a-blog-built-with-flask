@@ -1,13 +1,177 @@
 {% extends "base.html" %}
 {% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}Flasky - Edit Profile{% endblock %}
+{% block title %}个人资料设置 - 莓油菜花的博客{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Edit Your Profile</h1>
-</div>
-<div class="col-md-4">
-    {{ wtf.quick_form(form) }}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="page-header">
+            <h1><i class="fas fa-user-cog"></i> 个人资料设置</h1>
+            <p class="text-muted">完善你的个人信息，让更多人了解你</p>
+        </div>
+
+        <!-- 头像卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-image"></i> 头像设置
+            </div>
+            <div class="card-body text-center">
+                <img src="{{ current_user.gravatar(size=150) }}" class="rounded-circle mb-3"
+                     style="width: 150px; height: 150px; border: 5px solid #e3e6f0; object-fit: cover;">
+                <p class="text-muted mb-3">
+                    <small>你可以上传自己的头像，或使用 Cravatar 服务</small>
+                </p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{{ url_for('main.change_avatar') }}" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> 上传本地头像
+                    </a>
+                    <a href="https://cravatar.cn" target="_blank" class="btn btn-outline-secondary">
+                        <i class="fas fa-external-link-alt"></i> 使用 Cravatar
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基本信息表单 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-user-edit"></i> 基本信息
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                {{ form.name(class="form-control", placeholder="请输入你的昵称") }}
+                            </div>
+                            <small class="text-muted">显示在文章和个人主页的称呼</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            {{ form.location.label(class="form-label") }}
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                                {{ form.location(class="form-control", placeholder="例如：北京、上海") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.signature.label(class="form-label") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-quote-left"></i></span>
+                            {{ form.signature(class="form-control", placeholder="一句话介绍自己...") }}
+                        </div>
+                        <small class="text-muted">会显示在个人主页和首页，限 128 字</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.about_me.label(class="form-label") }}
+                        {{ form.about_me(class="form-control", rows="5", placeholder="详细介绍一下你自己...") }}
+                        <small class="text-muted">这段介绍会显示在首页"关于我"区域</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.website.label(class="form-label") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-globe"></i></span>
+                            {{ form.website(class="form-control", placeholder="https://your-website.com") }}
+                        </div>
+                        <small class="text-muted">你的个人网站或博客地址</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.avatar.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form.avatar(class="form-control", accept="images/*") }}
+                        </div>
+                        <small class="text-muted">也可以在这里直接上传头像（可选）</small>
+                        {% for error in form.avatar.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 账号信息 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-shield-alt"></i> 账号信息
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong><i class="fas fa-envelope"></i> 邮箱：</strong></p>
+                        <p class="text-muted">{{ current_user.email }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong><i class="fas fa-user-tag"></i> 用户名：</strong></p>
+                        <p class="text-muted">{{ current_user.username }}</p>
+                    </div>
+                </div>
+                <hr>
+                <p class="text-muted mb-0">
+                    <small><i class="fas fa-info-circle"></i> 如需修改密码，请联系博主</small>
+                </p>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar"></i> 我的数据
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-6">
+                        <div class="stat-number text-primary">{{ current_user.posts.count() }}</div>
+                        <div class="stat-label">文章数</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-number text-success">{{ current_user.comments.count() }}</div>
+                        <div class="stat-label">评论数</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理入口 -->
+        {% if current_user.is_administrator() %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-cog"></i> 管理功能
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('main.admin_categories') }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-folder"></i> 分类管理
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('main.admin_tags') }}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-tags"></i> 标签管理
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('main.admin_navigations') }}" class="btn btn-outline-info w-100">
+                            <i class="fas fa-bars"></i> 导航管理
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

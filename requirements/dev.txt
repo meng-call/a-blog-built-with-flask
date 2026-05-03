@@ -2,3 +2,4 @@
 faker==40.15.0
 httpie==3.2.4
 coverage==7.13.5
+python-dotenv==1.2.2

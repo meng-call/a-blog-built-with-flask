@@ -28,7 +28,7 @@ def forge_users(count):
     from sqlalchemy.exc import IntegrityError
     from faker import Faker
     
-    fake = Faker()
+    fake = Faker('zh_CN')
     i = 0
     while i < count:
         u = User(
@@ -56,7 +56,7 @@ def forge_posts(count):
     from random import randint
     from faker import Faker
     
-    fake = Faker()
+    fake = Faker('zh_CN')
     user_count = User.query.count()
     
     if user_count == 0:
@@ -98,7 +98,4 @@ def deploy():
     
     # 创建或更新用户角色
     Role.insert_roles()
-    
-    # 确保所有用户都关注了他们自己
-    User.add_self_follows()
 

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}关于我 - 莓油菜花的博客{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>
+        <i class="fas fa-user-circle"></i> 关于我
+    </h1>
+    <p>了解更多关于博主的信息</p>
+</div>
+
+<div class="row">
+    <!-- 左侧：个人信息卡片 -->
+    <div class="col-md-4 mb-4">
+        {% if current_user.is_authenticated %}
+        <div class="card profile-card text-center">
+            <div class="card-body">
+                <img src="{{ current_user.gravatar(size=256) }}" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                <h3 class="mb-2">{{ current_user.name or current_user.username }}</h3>
+                
+                {% if current_user.signature %}
+                <p class="text-muted fst-italic mb-3">
+                    <i class="fas fa-quote-left"></i> {{ current_user.signature }} <i class="fas fa-quote-right"></i>
+                </p>
+                {% endif %}
+                
+                <hr>
+                
+                {% if current_user.location %}
+                <p class="mb-2">
+                    <i class="fas fa-map-marker-alt text-primary"></i> {{ current_user.location }}
+                </p>
+                {% endif %}
+                
+                {% if current_user.website %}
+                <p class="mb-2">
+                    <i class="fas fa-globe text-primary"></i> 
+                    <a href="{{ current_user.website }}" target="_blank" class="text-decoration-none">个人网站</a>
+                </p>
+                {% endif %}
+                
+                <p class="mb-2">
+                    <i class="fas fa-envelope text-primary"></i> {{ current_user.email }}
+                </p>
+                
+                <p class="text-muted small mt-3">
+                    <i class="fas fa-calendar-alt"></i> 加入于 {{ moment(current_user.member_since).format('L') }}
+                </p>
+            </div>
+        </div>
+        {% else %}
+        <div class="card profile-card text-center">
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="fas fa-user-circle fa-6x text-muted"></i>
+                </div>
+                <h3 class="mb-2">访客朋友</h3>
+                <p class="text-muted mb-3">欢迎来到关于页面</p>
+                <hr>
+                <p class="text-muted small">
+                    <i class="fas fa-info-circle"></i> 请登录后查看博主详细信息
+                </p>
+                <div class="mt-3">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-sign-in-alt"></i> 登录
+                    </a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-user-plus"></i> 注册
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 右侧：详细介绍 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle"></i> 个人介绍
+            </div>
+            <div class="card-body">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.about_me %}
+                        <div class="about-content" style="white-space: pre-wrap; line-height: 1.8;">
+                            {{ current_user.about_me }}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">
+                            <i class="fas fa-pencil-alt"></i> 博主很懒，还没有写详细介绍...
+                        </p>
+                        <a href="{{ url_for('main.edit_profile') }}" class="btn btn-primary mt-3">
+                            <i class="fas fa-edit"></i> 编辑简介
+                        </a>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">
+                        <i class="fas fa-hand-sparkles"></i> 欢迎来到我的博客！这是一个分享技术、生活和想法的地方。
+                    </p>
+                    <p class="text-muted">
+                        <i class="fas fa-lightbulb"></i> 登录后可以查看更多个性化内容和博主的详细信息。
+                    </p>
+                    <div class="mt-4">
+                        <h5><i class="fas fa-star text-warning"></i> 博客特色</h5>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> 技术文章分享</li>
+                            <li><i class="fas fa-check text-success"></i> 生活点滴记录</li>
+                            <li><i class="fas fa-check text-success"></i> 学习心得交流</li>
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 技能或兴趣标签 -->
+        {% if current_user.is_authenticated %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-heart"></i> 联系方式
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-envelope fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="mb-1">邮件</h6>
+                                <a href="mailto:{{ current_user.email }}" class="text-decoration-none">
+                                    {{ current_user.email }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% if current_user.website %}
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="mb-1">网站</h6>
+                                <a href="{{ current_user.website }}" target="_blank" class="text-decoration-none">
+                                    访问我的网站
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-gift"></i> 开始探索
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    <i class="fas fa-arrow-right"></i> 登录后查看更多精彩内容
+                </p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-sign-in-alt"></i> 立即登录
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('main.index') }}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-home"></i> 返回首页
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

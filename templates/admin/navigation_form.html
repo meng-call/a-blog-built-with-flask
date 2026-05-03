@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-edit"></i> {{ title }}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control", placeholder="例如：归档") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.url.label(class="form-label") }}
+                        {{ form.url(class="form-control", placeholder="例如：/archives 或 https://example.com") }}
+                        <small class="text-muted">可以是相对路径或完整 URL</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.icon.label(class="form-label") }}
+                            {{ form.icon(class="form-control", placeholder="例如：fas fa-archive") }}
+                            <small class="text-muted">
+                                <a href="https://fontawesome.com/icons" target="_blank">Font Awesome 图标</a>
+                            </small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.order.label(class="form-label") }}
+                            {{ form.order(class="form-control", placeholder="数字越小越靠前") }}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        {{ form.enabled(class="form-check-input") }}
+                        {{ form.enabled.label(class="form-check-label") }}
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('main.admin_navigations') }}" class="btn btn-secondary">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
