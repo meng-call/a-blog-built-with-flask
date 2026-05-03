@@ -226,13 +226,13 @@ class User(UserMixin, db.Model):
     def generate_confirmation_token(self, expiration=3600):
         """生成确认令牌"""
         s = Serializer(current_app.config['SECRET_KEY'], salt='confirmation')
-        return s.dumps({'confirm': self.id}, salt='confirmation').decode('utf-8')
+        return s.dumps({'confirm': self.id})
 
     def confirm(self, token):
         """确认账户"""
         s = Serializer(current_app.config['SECRET_KEY'], salt='confirmation')
         try:
-            data = s.loads(token.encode('utf-8'))
+            data = s.loads(token)
         except:
             return False
         if data.get('confirm') != self.id:
@@ -243,14 +243,14 @@ class User(UserMixin, db.Model):
     def generate_reset_token(self, expiration=3600):
         """生成密码重置令牌"""
         s = Serializer(current_app.config['SECRET_KEY'], salt='reset')
-        return s.dumps({'reset': self.id}, salt='reset').decode('utf-8')
+        return s.dumps({'reset': self.id})
 
     @staticmethod
     def reset_password(token, new_password):
         """重置密码"""
         s = Serializer(current_app.config['SECRET_KEY'], salt='reset')
         try:
-            data = s.loads(token.encode('utf-8'))
+            data = s.loads(token)
         except:
             return False
         user = User.query.get(data.get('reset'))
@@ -263,13 +263,13 @@ class User(UserMixin, db.Model):
     def generate_email_change_token(self, new_email, expiration=3600):
         """生成邮箱更改令牌"""
         s = Serializer(current_app.config['SECRET_KEY'], salt='email_change')
-        return s.dumps({'change_email': self.id, 'new_email': new_email}, salt='email_change').decode('utf-8')
+        return s.dumps({'change_email': self.id, 'new_email': new_email})
 
     def change_email(self, token):
         """更改邮箱"""
         s = Serializer(current_app.config['SECRET_KEY'], salt='email_change')
         try:
-            data = s.loads(token.encode('utf-8'))
+            data = s.loads(token)
         except:
             return False
         if data.get('change_email') != self.id:
