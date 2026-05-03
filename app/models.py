@@ -223,6 +223,67 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return '<User %r>' % self.username
 
+    def generate_confirmation_token(self, expiration=3600):
+        """生成确认令牌"""
+        s = Serializer(current_app.config['SECRET_KEY'], salt='confirmation')
+        return s.dumps({'confirm': self.id}, salt='confirmation').decode('utf-8')
+
+    def confirm(self, token):
+        """确认账户"""
+        s = Serializer(current_app.config['SECRET_KEY'], salt='confirmation')
+        try:
+            data = s.loads(token.encode('utf-8'))
+        except:
+            return False
+        if data.get('confirm') != self.id:
+            return False
+        self.confirmed = True
+        return True
+
+    def generate_reset_token(self, expiration=3600):
+        """生成密码重置令牌"""
+        s = Serializer(current_app.config['SECRET_KEY'], salt='reset')
+        return s.dumps({'reset': self.id}, salt='reset').decode('utf-8')
+
+    @staticmethod
+    def reset_password(token, new_password):
+        """重置密码"""
+        s = Serializer(current_app.config['SECRET_KEY'], salt='reset')
+        try:
+            data = s.loads(token.encode('utf-8'))
+        except:
+            return False
+        user = User.query.get(data.get('reset'))
+        if user is None:
+            return False
+        user.password = new_password
+        db.session.add(user)
+        return True
+
+    def generate_email_change_token(self, new_email, expiration=3600):
+        """生成邮箱更改令牌"""
+        s = Serializer(current_app.config['SECRET_KEY'], salt='email_change')
+        return s.dumps({'change_email': self.id, 'new_email': new_email}, salt='email_change').decode('utf-8')
+
+    def change_email(self, token):
+        """更改邮箱"""
+        s = Serializer(current_app.config['SECRET_KEY'], salt='email_change')
+        try:
+            data = s.loads(token.encode('utf-8'))
+        except:
+            return False
+        if data.get('change_email') != self.id:
+            return False
+        new_email = data.get('new_email')
+        if new_email is None:
+            return False
+        if User.query.filter_by(email=new_email).first() is not None:
+            return False
+        self.email = new_email
+        db.session.add(self)
+        return True
+
+
 class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
