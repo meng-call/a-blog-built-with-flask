@@ -283,6 +283,36 @@ class User(UserMixin, db.Model):
         db.session.add(self)
         return True
 
+    def is_following(self, user):
+        """判断是否关注了某用户"""
+        if user is None:
+            return False
+        return Follow.query.filter_by(follower_id=self.id, followed_id=user.id).first() is not None
+
+    def is_followed_by(self, user):
+        """判断是否被某用户关注"""
+        if user is None:
+            return False
+        return Follow.query.filter_by(follower_id=user.id, followed_id=self.id).first() is not None
+
+    def follow(self, user):
+        """关注某用户"""
+        if not self.is_following(user):
+            f = Follow(follower_id=self.id, followed_id=user.id)
+            db.session.add(f)
+
+    def unfollow(self, user):
+        """取消关注某用户"""
+        f = Follow.query.filter_by(follower_id=self.id, followed_id=user.id).first()
+        if f:
+            db.session.delete(f)
+
+    @property
+    def followed_posts(self):
+        """获取关注的用户的文章"""
+        return Post.query.join(Follow, Follow.followed_id == Post.author_id)\
+            .filter(Follow.follower_id == self.id)
+
 
 class Post(db.Model):
     __tablename__ = 'posts'

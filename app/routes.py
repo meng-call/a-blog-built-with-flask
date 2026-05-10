@@ -482,6 +482,7 @@ def inject_navigations():
     navs = Navigation.query.filter_by(enabled=True).order_by(Navigation.order).all()
     return dict(custom_navigations=navs)
 
+
 @main.route('/admin/navigations')
 @login_required
 def admin_navigations():
@@ -595,6 +596,75 @@ def upload_editor_image():
     image_url = url_for('static', filename=f'uploads/editor/{new_filename}')
     
     return {'location': image_url}, 200
+
+
+@main.route('/follow/<username>')
+@login_required
+def follow(username):
+    """关注用户"""
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        flash('无效的用户', 'danger')
+        return redirect(url_for('.index'))
+    if user == current_user:
+        flash('你不能关注自己', 'warning')
+        return redirect(url_for('.user', username=username))
+    current_user.follow(user)
+    db.session.commit()
+    flash(f'你已关注 {user.username}', 'success')
+    return redirect(url_for('.user', username=username))
+
+
+@main.route('/unfollow/<username>')
+@login_required
+def unfollow(username):
+    """取消关注用户"""
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        flash('无效的用户', 'danger')
+        return redirect(url_for('.index'))
+    if user == current_user:
+        flash('你不能取消关注自己', 'warning')
+        return redirect(url_for('.user', username=username))
+    current_user.unfollow(user)
+    db.session.commit()
+    flash(f'你已取消关注 {user.username}', 'success')
+    return redirect(url_for('.user', username=username))
+
+
+@main.route('/admin/edit-profile/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_profile_admin(id):
+    """管理员编辑用户资料"""
+    user = User.query.get_or_404(id)
+    form = EditProfileForm()
+    
+    if form.validate_on_submit():
+        user.name = form.name.data
+        user.location = form.location.data
+        user.signature = form.signature.data
+        user.about_me = form.about_me.data
+        user.website = form.website.data
+        
+        # 处理头像上传
+        if form.avatar.data:
+            user.save_avatar(form.avatar.data)
+        
+        db.session.add(user)
+        db.session.commit()
+        flash('用户资料已更新', 'success')
+        return redirect(url_for('.user', username=user.username))
+    
+    if request.method == 'GET':
+        form.name.data = user.name
+        form.location.data = user.location
+        form.signature.data = user.signature
+        form.about_me.data = user.about_me
+        if hasattr(user, 'website'):
+            form.website.data = user.website
+    
+    return render_template('edit_profile_admin.html', form=form, user=user)
 
 
 @main.app_context_processor
