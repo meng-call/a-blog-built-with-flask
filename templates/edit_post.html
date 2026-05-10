@@ -102,12 +102,19 @@
 
 {% block scripts %}
 {{ super() }}
-<!-- TinyMCE 8 -->
-<script src="https://cdn.tiny.cloud/1/abk1zw3rn3pbifa1qtoc7kvael3cd587p2xhm1dvezgyo8sd/tinymce/8/tinymce.min.js" referrerpolicy="origin" crossorigin="anonymous"></script>
+<!-- TinyMCE 6 - 使用 unpkg CDN -->
+<script src="https://unpkg.com/tinymce@6.8.2/tinymce.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化 TinyMCE 8 编辑器
+    console.log('TinyMCE loaded:', typeof tinymce !== 'undefined');
+
+    if (typeof tinymce === 'undefined') {
+        console.error('TinyMCE failed to load! Using plain textarea.');
+        return;
+    }
+
+    // 初始化 TinyMCE 6 编辑器
     tinymce.init({
         selector: '#editor',
         language: 'zh_CN',
@@ -116,9 +123,9 @@ document.addEventListener('DOMContentLoaded', function() {
         menubar: true,
         plugins: [
             'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount',
-            'image', 'preview', 'fullscreen', 'advlist', 'insertdatetime', 'paste', 'textpattern'
+            'image', 'preview', 'fullscreen', 'advlist', 'insertdatetime'
         ],
-        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link images media table | removeformat codesample fullscreen preview',
+        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | removeformat codesample fullscreen preview',
 
         // 图片上传配置
         images_upload_handler: function (blobInfo, progress) {
@@ -188,33 +195,71 @@ document.addEventListener('DOMContentLoaded', function() {
             table td, table th { border: 1px solid #ddd; padding: 8px; }
         `,
 
-        // 在表单提交前同步内容
+        // 实时同步内容
         setup: function(editor) {
-            editor.on('submit', function(e) {
-                e.preventDefault();
+            editor.on('change', function() {
                 editor.save();
-                document.getElementById('post-form').submit();
             });
+
+            editor.on('keyup', function() {
+                editor.save();
+            });
+
+            console.log('TinyMCE initialized successfully');
+        },
+
+        init_instance_callback: function(editor) {
+            console.log('Editor instance created:', editor.id);
         }
     });
 
-    // 表单提交时同步编辑器内容
-    document.getElementById('post-form').addEventListener('submit', function(e) {
-        tinymce.get('editor').save();
-        document.getElementById('body-field').value = tinymce.get('editor').getContent();
-    });
+    // 确保表单提交时同步编辑器内容
+    var form = document.getElementById('post-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var editor = tinymce.get('editor');
+            if (editor) {
+                // 强制同步内容到隐藏的 textarea
+                editor.save();
+
+                // 获取编辑器内容
+                var content = editor.getContent();
+                var bodyField = document.getElementById('body-field');
+
+                // 确保内容被设置
+                if (bodyField) {
+                    bodyField.value = content;
+                }
+
+                console.log('Form is submitting...');
+                console.log('Editor content length:', content.length);
+                console.log('Body field value length:', bodyField ? bodyField.value.length : 0);
+            } else {
+                console.error('TinyMCE editor not found!');
+            }
+
+            // 让表单正常提交
+            return true;
+        });
+    }
 
     // 预览功能
-    document.getElementById('preview-btn').addEventListener('click', function() {
-        var content = tinymce.get('editor').getContent();
-        var title = document.getElementById('title-field').value;
+    var previewBtn = document.getElementById('preview-btn');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function() {
+            var editor = tinymce.get('editor');
+            if (editor) {
+                var content = editor.getContent();
+                var title = document.getElementById('title-field').value;
 
-        document.getElementById('preview-title').textContent = title || '无标题';
-        document.getElementById('preview-content').innerHTML = content;
+                document.getElementById('preview-title').textContent = title || '无标题';
+                document.getElementById('preview-content').innerHTML = content;
 
-        var previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-        previewModal.show();
-    });
+                var previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+                previewModal.show();
+            }
+        });
+    }
 });
 </script>
 

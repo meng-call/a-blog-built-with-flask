@@ -14,7 +14,7 @@ class NameForm(FlaskForm):
 class PostForm(FlaskForm):
     """发布帖子表单"""
     title = StringField('文章标题', validators=[DataRequired(), Length(1, 128)])
-    body = TextAreaField("文章内容", validators=[DataRequired()])
+    body = TextAreaField("文章内容")
     category = SelectField('分类', coerce=int, validators=[DataRequired()])
     tags = SelectMultipleField('标签', coerce=int)
     submit = SubmitField('发布')
@@ -28,7 +28,7 @@ class PostForm(FlaskForm):
 class EditPostForm(FlaskForm):
     """编辑帖子表单"""
     title = StringField('文章标题', validators=[DataRequired(), Length(1, 128)])
-    body = TextAreaField("文章内容", validators=[DataRequired()])
+    body = TextAreaField("文章内容")
     category = SelectField('分类', coerce=int, validators=[DataRequired()])
     tags = SelectMultipleField('标签', coerce=int)
     submit = SubmitField('保存')

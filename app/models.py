@@ -302,10 +302,21 @@ class Post(db.Model):
     def on_changed_body(target, value, oldvalue, initiator):
         allowed_tags = ['a', 'abbr', 'acronym', 'b', 'code',
                         'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
-                        'h1', 'h2', 'h3', 'p']
+                        'h1', 'h2', 'h3', 'p', 'img', 'table', 'thead', 'tbody', 
+                        'tr', 'th', 'td', 'br', 'hr', 'span', 'div']
+        allowed_attrs = {
+            'img': ['src', 'alt', 'title', 'width', 'height'],
+            'a': ['href', 'title'],
+            'span': ['style'],
+            'div': ['style'],
+            'td': ['colspan', 'rowspan'],
+            'th': ['colspan', 'rowspan']
+        }
         target.body_html = bleach.linkify(bleach.clean(
             markdown(value, output_format='html'),
-            tags=allowed_tags, strip=True))
+            tags=allowed_tags, 
+            attributes=allowed_attrs,
+            strip=True))
 
     def to_json(self):
         """将文章对象转换为JSON格式"""
@@ -344,10 +355,16 @@ class Comment(db.Model):
 
     @staticmethod
     def on_changed_body(target, value, oldvalue, initiator):
-        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'code', 'em', 'i', 'strong']
+        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'code', 'em', 'i', 'strong', 'img']
+        allowed_attrs = {
+            'img': ['src', 'alt', 'title'],
+            'a': ['href', 'title']
+        }
         target.body_html = bleach.linkify(bleach.clean(
             markdown(value, output_format='html'),
-            tags=allowed_tags, strip=True))
+            tags=allowed_tags,
+            attributes=allowed_attrs,
+            strip=True))
 
     def to_json(self):
         """将评论对象转换为JSON格式"""

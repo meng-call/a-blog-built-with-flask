@@ -56,23 +56,46 @@ def new_post():
         abort(403)
     
     form = PostForm()
+    if request.method == 'POST':
+        print("=== POST request received ===")
+        print(f"Form data keys: {list(request.form.keys())}")
+        print(f"Body field value length: {len(request.form.get('body', ''))}")
+        print(f"Form validate: {form.validate_on_submit()}")
+        if not form.validate_on_submit():
+            print(f"Form errors: {form.errors}")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f'{field}: {error}', 'danger')
+    
     if form.validate_on_submit():
-        category = Category.query.get(form.category.data)
-        post = Post(
-            title=form.title.data,
-            body=form.body.data,
-            category=category,
-            author=current_user._get_current_object()
-        )
-        
-        if form.tags.data:
-            tags = Tag.query.filter(Tag.id.in_(form.tags.data)).all()
-            post.tags = tags
-        
-        db.session.add(post)
-        db.session.commit()
-        flash('文章已发布', 'success')
-        return redirect(url_for('.post', id=post.id))
+        try:
+            # 验证文章内容不为空
+            body_content = form.body.data
+            if not body_content or not body_content.strip():
+                flash('文章内容不能为空', 'warning')
+                return render_template('edit_post.html', form=form, post=None)
+            
+            category = Category.query.get(form.category.data)
+            post = Post(
+                title=form.title.data,
+                body=body_content,
+                category=category,
+                author=current_user._get_current_object()
+            )
+            
+            if form.tags.data:
+                tags = Tag.query.filter(Tag.id.in_(form.tags.data)).all()
+                post.tags = tags
+            
+            db.session.add(post)
+            db.session.commit()
+            flash('文章已发布', 'success')
+            return redirect(url_for('.post', id=post.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'发布文章失败: {str(e)}', 'danger')
+            import logging
+            logging.error(f'Error creating post: {str(e)}', exc_info=True)
     
     return render_template('edit_post.html', form=form, post=None)
 
